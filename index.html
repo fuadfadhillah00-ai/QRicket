@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+    <!-- QR Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QRicket - Platform Tiket Acara</title>
@@ -857,80 +859,93 @@ JAVASCRIPT
         `;
     }
     
-    // ================================================================
-    // RENDER: ORGANIZER DASHBOARD
-    // ================================================================
-    
-    function renderOrganizerDashboard() {
-        return `
-            <div class="grid-3" style="margin-bottom:24px;">
-                <div class="stat-card"><div class="number" id="orgTotalEvents">0</div><div class="label">Total Acara</div></div>
-                <div class="stat-card"><div class="number" id="orgTotalTickets">0</div><div class="label">Total Tiket</div></div>
-                <div class="stat-card"><div class="number" id="orgTotalCheckins">0</div><div class="label">Total Check-in</div></div>
-            </div>
-            <div class="grid-2">
-                <div class="card">
-                    <div class="section-title"><i class="fas fa-calendar-plus"></i> Buat Acara</div>
-                    <form id="createEventForm" onsubmit="handleCreateEvent(event)">
-                        <div class="form-group"><label>Nama Acara *</label><input type="text" id="evName" placeholder="Nama acara" required></div>
-                        <div class="form-group">
-                            <label>Kategori</label>
-                            <select id="evCategory">
-                                <option value="Konferensi">Konferensi</option>
-                                <option value="Webinar">Webinar</option>
-                                <option value="Workshop">Workshop</option>
-                                <option value="Konser">Konser</option>
-                                <option value="Festival">Festival</option>
-                                <option value="Lainnya">Lainnya</option>
-                            </select>
-                        </div>
-                        <div class="form-group"><label>Deskripsi</label><textarea id="evDesc" placeholder="Deskripsi acara"></textarea></div>
-                        <div class="form-group"><label>Lokasi</label><input type="text" id="evLocation" placeholder="Lokasi acara"></div>
-                        <div class="grid-2" style="gap:12px;">
-                            <div class="form-group"><label>Tanggal Mulai</label><input type="datetime-local" id="evStart"></div>
-                            <div class="form-group"><label>Tanggal Selesai</label><input type="datetime-local" id="evEnd"></div>
-                        </div>
-                        <div class="grid-2" style="gap:12px;">
-                            <div class="form-group"><label>Kuota Tiket</label><input type="number" id="evQuota" value="100"></div>
-                            <div class="form-group"><label>Harga Tiket</label><input type="number" id="evPrice" value="0" placeholder="0 = gratis"></div>
-                        </div>
-                        <div class="form-group">
-                            <label>Paket</label>
-                            <select id="evPackage">
-                                <option value="basic">Basic - Rp 49.000</option>
-                                <option value="starter" selected>Starter - Rp 99.000</option>
-                                <option value="pro">Pro - Rp 199.000</option>
-                                <option value="enterprise">Enterprise - Rp 499.000</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;"><i class="fas fa-plus-circle"></i> Buat Acara</button>
-                    </form>
-                    <div id="createEventAlert"></div>
-                </div>
-                <div class="card">
-                    <div class="section-title"><i class="fas fa-list"></i> Acara Saya</div>
-                    <div id="organizerEvents"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat acara...</p></div></div>
-                </div>
-            </div>
-            <div class="card" style="margin-top:24px;">
-                <div class="section-title"><i class="fas fa-qrcode"></i> Scanner QR Code</div>
-                <div style="max-width:440px;margin:0 auto;">
-                    <div class="scanner-box" onclick="openScanner()">
-                        <i class="fas fa-camera"></i>
-                        <p>Klik untuk scan QR Code tiket</p>
+// ================================================================
+// RENDER: ORGANIZER DASHBOARD (DENGAN SCANNER REAL)
+// ================================================================
+
+function renderOrganizerDashboard() {
+    return `
+        <div class="grid-3" style="margin-bottom:24px;">
+            <div class="stat-card"><div class="number" id="orgTotalEvents">0</div><div class="label">Total Acara</div></div>
+            <div class="stat-card"><div class="number" id="orgTotalTickets">0</div><div class="label">Total Tiket</div></div>
+            <div class="stat-card"><div class="number" id="orgTotalCheckins">0</div><div class="label">Total Check-in</div></div>
+        </div>
+        
+        <div class="grid-2">
+            <div class="card">
+                <div class="section-title"><i class="fas fa-calendar-plus"></i> Buat Acara</div>
+                <form id="createEventForm" onsubmit="handleCreateEvent(event)">
+                    <div class="form-group"><label>Nama Acara *</label><input type="text" id="evName" placeholder="Nama acara" required></div>
+                    <div class="form-group">
+                        <label>Kategori</label>
+                        <select id="evCategory">
+                            <option value="Konferensi">Konferensi</option>
+                            <option value="Webinar">Webinar</option>
+                            <option value="Workshop">Workshop</option>
+                            <option value="Konser">Konser</option>
+                            <option value="Festival">Festival</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
                     </div>
-                    <div id="scanResult"></div>
-                    <div class="form-group" style="margin-top:16px;">
-                        <label>Atau masukkan kode manual</label>
-                        <div style="display:flex;gap:8px;">
-                            <input type="text" id="manualTicketCode" placeholder="TKT-ABC123" style="flex:1;">
-                            <button class="btn btn-primary" onclick="handleManualCheckin()"><i class="fas fa-check"></i></button>
-                        </div>
+                    <div class="form-group"><label>Deskripsi</label><textarea id="evDesc" placeholder="Deskripsi acara"></textarea></div>
+                    <div class="form-group"><label>Lokasi</label><input type="text" id="evLocation" placeholder="Lokasi acara"></div>
+                    <div class="grid-2" style="gap:12px;">
+                        <div class="form-group"><label>Tanggal Mulai</label><input type="datetime-local" id="evStart"></div>
+                        <div class="form-group"><label>Tanggal Selesai</label><input type="datetime-local" id="evEnd"></div>
+                    </div>
+                    <div class="grid-2" style="gap:12px;">
+                        <div class="form-group"><label>Kuota Tiket</label><input type="number" id="evQuota" value="100"></div>
+                        <div class="form-group"><label>Harga Tiket</label><input type="number" id="evPrice" value="0" placeholder="0 = gratis"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Paket</label>
+                        <select id="evPackage">
+                            <option value="basic">Basic - Rp 49.000</option>
+                            <option value="starter" selected>Starter - Rp 99.000</option>
+                            <option value="pro">Pro - Rp 199.000</option>
+                            <option value="enterprise">Enterprise - Rp 499.000</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;"><i class="fas fa-plus-circle"></i> Buat Acara</button>
+                </form>
+                <div id="createEventAlert"></div>
+            </div>
+            <div class="card">
+                <div class="section-title"><i class="fas fa-list"></i> Acara Saya</div>
+                <div id="organizerEvents"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat acara...</p></div></div>
+            </div>
+        </div>
+        
+        <div class="card" style="margin-top:24px;">
+            <div class="section-title"><i class="fas fa-qrcode"></i> Scanner QR Code</div>
+            <div style="max-width:500px;margin:0 auto;">
+                <!-- Tombol Start/Stop Scanner -->
+                <div style="display:flex;gap:12px;justify-content:center;margin-bottom:16px;">
+                    <button class="btn btn-primary" onclick="startScanner()">
+                        <i class="fas fa-camera"></i> Buka Kamera
+                    </button>
+                    <button class="btn btn-danger" onclick="stopScanner()">
+                        <i class="fas fa-stop"></i> Stop
+                    </button>
+                </div>
+                
+                <!-- Container untuk QR Scanner -->
+                <div id="qr-reader" style="width:100%;border-radius:16px;overflow:hidden;background:#1a1a2e;"></div>
+                <div id="qr-reader-results" style="margin-top:12px;"></div>
+                
+                <!-- Manual input -->
+                <div class="form-group" style="margin-top:16px;">
+                    <label>Atau masukkan kode manual</label>
+                    <div style="display:flex;gap:8px;">
+                        <input type="text" id="manualTicketCode" placeholder="TKT-ABC123" style="flex:1;">
+                        <button class="btn btn-primary" onclick="handleManualCheckin()"><i class="fas fa-check"></i></button>
                     </div>
                 </div>
+                <div id="scanResult"></div>
             </div>
-        `;
-    }
+        </div>
+    `;
+}
     
     // ================================================================
     // RENDER: ADMIN DASHBOARD
@@ -1149,13 +1164,9 @@ JAVASCRIPT
     // SCANNER / CHECK-IN
     // ================================================================
     
-    function openScanner() {
-        var code = prompt('Masukkan kode tiket (contoh: TKT-ABC123):');
-        if (code) {
-            document.getElementById('manualTicketCode').value = code;
-            handleManualCheckin();
-        }
-    }
+function openScanner() {
+    startScanner();
+}
     
     function handleManualCheckin() {
         var code = document.getElementById('manualTicketCode').value.trim();
@@ -1187,6 +1198,160 @@ JAVASCRIPT
             }
         });
     }
+
+// ================================================================
+// QR SCANNER FUNCTIONS
+// ================================================================
+
+var html5QrCode = null;
+var isScannerRunning = false;
+
+function startScanner() {
+    var resultDiv = document.getElementById('scanResult');
+    var readerContainer = document.getElementById('qr-reader');
+    
+    // Cek apakah browser support camera
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        resultDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> Browser tidak mendukung kamera!</div>';
+        return;
+    }
+    
+    // Jika scanner sudah running, stop dulu
+    if (html5QrCode && isScannerRunning) {
+        stopScanner();
+    }
+    
+    resultDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Mengakses kamera...</div>';
+    
+    // Konfigurasi scanner
+    var config = {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0,
+        formatsToSupport: [
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.AZTEC,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.CODE_93,
+            Html5QrcodeSupportedFormats.CODABAR,
+            Html5QrcodeSupportedFormats.DATA_MATRIX,
+            Html5QrcodeSupportedFormats.MAXICODE,
+            Html5QrcodeSupportedFormats.ITF,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.PDF_417,
+            Html5QrcodeSupportedFormats.RSS_14,
+            Html5QrcodeSupportedFormats.RSS_EXPANDED,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.UPC_EAN_EXTENSION
+        ]
+    };
+    
+    html5QrCode = new Html5Qrcode("qr-reader");
+    
+    html5QrCode.start(
+        { facingMode: "environment" }, // Gunakan kamera belakang
+        config,
+        onScanSuccess,
+        onScanError
+    ).then(function() {
+        isScannerRunning = true;
+        resultDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Kamera aktif! Arahkan ke QR Code.</div>';
+    }).catch(function(err) {
+        // Jika gagal, coba dengan kamera depan
+        html5QrCode.start(
+            { facingMode: "user" },
+            config,
+            onScanSuccess,
+            onScanError
+        ).then(function() {
+            isScannerRunning = true;
+            resultDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Kamera aktif! (kamera depan)</div>';
+        }).catch(function(err2) {
+            resultDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> Gagal akses kamera: ' + err2 + '</div>';
+            console.error('Scanner error:', err2);
+        });
+    });
+}
+
+function stopScanner() {
+    if (html5QrCode && isScannerRunning) {
+        html5QrCode.stop().then(function() {
+            isScannerRunning = false;
+            document.getElementById('scanResult').innerHTML = '<div class="alert alert-info"><i class="fas fa-info-circle"></i> Scanner dihentikan.</div>';
+            // Clear QR reader
+            var readerContainer = document.getElementById('qr-reader');
+            readerContainer.innerHTML = '';
+        }).catch(function(err) {
+            console.error('Stop scanner error:', err);
+        });
+    }
+}
+
+function onScanSuccess(decodedText, decodedResult) {
+    // Hentikan scanner setelah scan berhasil
+    stopScanner();
+    
+    // decodedText adalah kode tiket
+    document.getElementById('manualTicketCode').value = decodedText;
+    
+    // Proses check-in otomatis
+    var resultDiv = document.getElementById('scanResult');
+    resultDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> QR Code terdeteksi: ' + decodedText + '</div>';
+    
+    // Jalankan check-in
+    setTimeout(function() {
+        handleManualCheckin();
+    }, 500);
+}
+
+function onScanError(errorMessage) {
+    // Error scanning - ignore, ini normal saat kamera mencari QR
+    // Tidak perlu ditampilkan ke user
+}
+
+// ================================================================
+// HANDLE MANUAL CHECK-IN (UPDATE)
+// ================================================================
+
+function handleManualCheckin() {
+    var code = document.getElementById('manualTicketCode').value.trim();
+    var resultDiv = document.getElementById('scanResult');
+    
+    if (!code) {
+        resultDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> Masukkan kode tiket!</div>';
+        return;
+    }
+    
+    if (!currentUser) {
+        resultDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> Silakan login sebagai organizer!</div>';
+        return;
+    }
+    
+    resultDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Memproses check-in...</div>';
+    
+    callAPI('checkin', {
+        ticketCode: code,
+        scannerId: currentUser.id
+    }, function(result) {
+        if (result.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i> ${result.message}
+                    <br><small>Peserta: ${result.data.attendeeName || '-'}</small>
+                    <br><small>Email: ${result.data.attendeeEmail || '-'}</small>
+                </div>
+            `;
+            document.getElementById('manualTicketCode').value = '';
+            // Refresh data
+            loadOrganizerData();
+        } else {
+            resultDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> ' + result.message + '</div>';
+        }
+    });
+}
     
     // ================================================================
     // INITIALIZATION
