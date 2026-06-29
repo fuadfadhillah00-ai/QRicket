@@ -844,20 +844,20 @@ JAVASCRIPT
     // RENDER: ATTENDEE DASHBOARD
     // ================================================================
     
-    function renderAttendeeDashboard() {
-        return `
-            <div class="grid-2">
-                <div class="card">
-                    <div class="section-title"><i class="fas fa-ticket-alt"></i> Tiket Saya</div>
-                    <div id="attendeeTickets"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat tiket...</p></div></div>
-                </div>
-                <div class="card">
-                    <div class="section-title"><i class="fas fa-calendar-alt"></i> Acara Tersedia</div>
-                    <div id="attendeeEvents"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat acara...</p></div></div>
-                </div>
+function renderAttendeeDashboard() {
+    return `
+        <div class="grid-2">
+            <div class="card">
+                <div class="section-title"><i class="fas fa-ticket-alt"></i> Tiket Saya</div>
+                <div id="attendeeTickets"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat tiket...</p></div></div>
             </div>
-        `;
-    }
+            <div class="card">
+                <div class="section-title"><i class="fas fa-calendar-alt"></i> Acara Tersedia</div>
+                <div id="attendeeEvents"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat acara...</p></div></div>
+            </div>
+        </div>
+    `;
+}
     
 // ================================================================
 // RENDER: ORGANIZER DASHBOARD (DENGAN SCANNER REAL)
@@ -1049,25 +1049,59 @@ function renderOrganizerDashboard() {
     // RENDER: EVENTS
     // ================================================================
     
-    function renderEvents() {
-        var container = document.getElementById('attendeeEvents');
-        if (!container) return;
-        if (!allEvents || allEvents.length === 0) {
-            container.innerHTML = '<div class="empty-state"><i class="fas fa-calendar"></i><p>Belum ada acara</p></div>';
-            return;
-        }
-        var html = '';
-        for (var i = 0; i < Math.min(allEvents.length, 5); i++) {
-            var e = allEvents[i];
-            html += `
-                <div style="padding:12px 0;border-bottom:1px solid rgba(124,58,237,0.1);">
-                    <strong>${e.name}</strong>
-                    <p style="font-size:13px;color:#94a3b8;">${e.category || 'Acara'} • ${e.location || 'Lokasi'}</p>
-                </div>
-            `;
-        }
-        container.innerHTML = html;
+function renderEvents() {
+    var container = document.getElementById('attendeeEvents');
+    if (!container) return;
+    
+    if (!allEvents || allEvents.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fas fa-calendar"></i><p>Belum ada acara tersedia</p></div>';
+        return;
     }
+    
+    var html = '';
+    for (var i = 0; i < allEvents.length; i++) {
+        var e = allEvents[i];
+        
+        // Cek apakah peserta sudah terdaftar di acara ini
+        var isRegistered = false;
+        for (var j = 0; j < userTickets.length; j++) {
+            if (userTickets[j].event_id === e.id) {
+                isRegistered = true;
+                break;
+            }
+        }
+        
+        // Hanya tampilkan acara yang masih aktif
+        if (e.status !== 'published' && e.status !== 'ongoing') continue;
+        
+        html += `
+            <div style="padding:16px 0;border-bottom:1px solid rgba(124,58,237,0.1);">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                    <div>
+                        <strong>${e.name}</strong>
+                        <p style="font-size:13px;color:#94a3b8;">
+                            ${e.category || 'Acara'} • ${e.location || 'Lokasi'}
+                            ${e.start_date ? ' • 📅 ' + formatDate(e.start_date) : ''}
+                        </p>
+                        <p style="font-size:13px;color:#4a4a6a;">
+                            🎫 Kuota: ${e.max_quota || 0} tiket
+                            ${e.ticket_price && e.ticket_price > 0 ? ' • 💰 Rp ' + formatNumber(e.ticket_price) : ' • 🆓 Gratis'}
+                        </p>
+                    </div>
+                    <div>
+                        ${isRegistered ? 
+                            '<span class="ticket-status active">✅ Terdaftar</span>' :
+                            `<button class="btn btn-primary btn-sm" onclick="registerToEvent('${e.id}')">
+                                <i class="fas fa-plus-circle"></i> Daftar
+                            </button>`
+                        }
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+}
     
     function renderOrganizerEvents() {
         var container = document.getElementById('organizerEvents');
@@ -1312,6 +1346,66 @@ function onScanError(errorMessage) {
     // Tidak perlu ditampilkan ke user
 }
 
+// ================================================================
+// REGISTRASI PESERTA KE ACARA
+// ================================================================
+
+function registerToEvent(eventId) {
+    if (!currentUser) {
+        alert('Silakan login terlebih dahulu!');
+        return;
+    }
+    
+    if (currentUser.role !== 'attendee') {
+        alert('Hanya peserta yang bisa mendaftar acara!');
+        return;
+    }
+    
+    var alertDiv = document.getElementById('attendeeEvents');
+    alertDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Mendaftar ke acara...</div>';
+    
+    callAPI('registerToEvent', {
+        eventId: eventId,
+        attendeeId: currentUser.id,
+        attendeeName: currentUser.full_name,
+        attendeeEmail: currentUser.email,
+        attendeePhone: currentUser.phone || ''
+    }, function(result) {
+        if (result.success) {
+            alertDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> ' + result.message + '</div>';
+            // Refresh data
+            loadAttendeeData();
+        } else {
+            alertDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> ' + result.message + '</div>';
+        }
+    });
+}
+
+// ================================================================
+// HELPER FUNCTIONS
+// ================================================================
+
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    try {
+        var d = new Date(dateString);
+        return d.toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (e) {
+        return dateString;
+    }
+}
+
+function formatNumber(num) {
+    if (!num) return '0';
+    return Number(num).toLocaleString('id-ID');
+}
+    
 // ================================================================
 // HANDLE MANUAL CHECK-IN (UPDATE)
 // ================================================================
