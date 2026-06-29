@@ -1036,14 +1036,21 @@ function renderOrganizerDashboard() {
     // ================================================================
     
 function loadAttendeeData() {
+    console.log('🔄 loadAttendeeData() dipanggil!');
+    
     // 🔥 LOAD TIKET
     callAPI('getTicketsByAttendee', { attendeeId: currentUser.id }, function(result) {
+        console.log('📡 Response tiket:', result);
+        
         if (result.success) {
             userTickets = result.data || [];
+            console.log('📊 Data tiket:', userTickets);
             renderTickets();
             
             // 🔥 MULAI AUTO REFRESH
             startAutoRefresh();
+        } else {
+            console.log('❌ Gagal load tiket:', result.message);
         }
     });
     
@@ -1086,10 +1093,22 @@ function loadAttendeeData() {
     // ================================================================
     
 function renderTickets() {
-    var container = document.getElementById('attendeeTickets');
-    if (!container) return;
+    console.log('🔄 renderTickets() dipanggil!');
     
-    if (!userTickets || userTickets.length === 0) {
+    var container = document.getElementById('attendeeTickets');
+    if (!container) {
+        console.log('❌ Container attendeeTickets tidak ditemukan!');
+        return;
+    }
+    
+    // 🔥 PASTIKAN userTickets selalu array
+    if (!userTickets) {
+        userTickets = [];
+    }
+    
+    console.log('📊 Jumlah tiket:', userTickets.length);
+    
+    if (userTickets.length === 0) {
         container.innerHTML = '<div class="empty-state"><i class="fas fa-ticket-alt"></i><p>Belum ada tiket</p></div>';
         return;
     }
@@ -1098,8 +1117,14 @@ function renderTickets() {
     for (var i = 0; i < userTickets.length; i++) {
         var t = userTickets[i];
         
-        // 🔥 CEK STATUS DARI DATABASE (Langsung dari userTickets yang sudah direfresh)
-        var isUsed = t.is_checked_in === 'TRUE';
+        // 🔥 PASTIKAN is_checked_in dibaca dengan benar
+        var isUsed = false;
+        if (t.is_checked_in === 'TRUE' || t.is_checked_in === true) {
+            isUsed = true;
+        }
+        
+        console.log('🔍 Tiket #' + (i+1) + ' - Kode: ' + t.ticket_code + ', is_checked_in: "' + t.is_checked_in + '" → ' + (isUsed ? 'HANGUS' : 'AKTIF'));
+        
         var statusClass = isUsed ? 'used' : 'active';
         var statusText = isUsed ? '❌ Hangus (Sudah Check-in)' : '🟢 Aktif';
         
@@ -1110,7 +1135,8 @@ function renderTickets() {
             qrDisplay = `<div class="qr-placeholder" style="${isUsed ? 'opacity:0.3;' : ''}"><i class="fas fa-qrcode"></i></div>`;
         }
         
-        var watermark = isUsed ? '<span class="hangus-badge" style="background:#ef4444;color:white;padding:2px 12px;border-radius:20px;font-size:10px;font-weight:700;">HANGUS</span>' : '';
+        var watermark = isUsed ? '<span style="background:#ef4444;color:white;padding:2px 12px;border-radius:20px;font-size:10px;font-weight:700;margin-left:8px;">HANGUS</span>' : '';
+        var usedTime = isUsed && t.checked_in_at ? `<p style="color:#f87171;font-size:12px;"><i class="fas fa-clock"></i> Digunakan: ${formatDate(t.checked_in_at)}</p>` : '';
         
         html += `
             <div class="ticket-card" style="${isUsed ? 'opacity:0.7;border-color:rgba(239,68,68,0.2);' : ''}">
@@ -1121,7 +1147,7 @@ function renderTickets() {
                     <h4>${t.ticket_code || 'Tiket'} ${watermark}</h4>
                     <p><i class="fas fa-user"></i> ${t.attendee_name || 'Nama'}</p>
                     <p><i class="fas fa-envelope"></i> ${t.attendee_email || 'Email'}</p>
-                    ${isUsed ? `<p style="color:#f87171;font-size:12px;"><i class="fas fa-clock"></i> Digunakan: ${formatDate(t.checked_in_at)}</p>` : ''}
+                    ${usedTime}
                 </div>
                 <div style="text-align:center;">
                     <span class="ticket-status ${statusClass}">${statusText}</span>
@@ -1136,6 +1162,7 @@ function renderTickets() {
         `;
     }
     container.innerHTML = html;
+    console.log('✅ renderTickets() selesai!');
 }
     
     // ================================================================
@@ -1663,15 +1690,18 @@ function refreshAllData() {
 var refreshInterval = null;
 
 function startAutoRefresh() {
-    // Hentikan interval lama jika ada
+    // Hentikan interval lama
     if (refreshInterval) {
         clearInterval(refreshInterval);
         refreshInterval = null;
     }
     
-    // Mulai interval baru (setiap 3 detik)
+    console.log('🔄 Auto refresh dimulai (setiap 3 detik)');
+    
+    // Mulai interval baru
     refreshInterval = setInterval(function() {
         if (currentUser && currentUser.role === 'attendee') {
+            console.log('⏰ Auto refresh tiket...');
             refreshTicketsOnly();
         }
     }, 3000);
@@ -1685,30 +1715,29 @@ function stopAutoRefresh() {
 }
 
 function refreshTicketsOnly() {
-    if (!currentUser) return;
+    console.log('🔄 refreshTicketsOnly() dipanggil!');
+    
+    if (!currentUser) {
+        console.log('❌ Tidak ada user login');
+        return;
+    }
     
     callAPI('getTicketsByAttendee', { attendeeId: currentUser.id }, function(result) {
+        console.log('📡 Response dari API:', result);
+        
         if (result.success) {
             var newTickets = result.data || [];
+            console.log('📊 Data baru dari database:', newTickets);
             
-            // Cek apakah ada perubahan status
-            var hasChanged = false;
-            if (userTickets.length !== newTickets.length) {
-                hasChanged = true;
-            } else {
-                for (var i = 0; i < userTickets.length; i++) {
-                    if (userTickets[i].is_checked_in !== newTickets[i].is_checked_in) {
-                        hasChanged = true;
-                        break;
-                    }
-                }
-            }
+            // 🔥 LANGSUNG OVERRIDE, jangan bandingkan
+            userTickets = newTickets;
             
-            if (hasChanged) {
-                userTickets = newTickets;
-                renderTickets();
-                console.log('🔄 Tiket di-refresh otomatis!');
-            }
+            // 🔥 PANGGIL RENDER ULANG
+            renderTickets();
+            
+            console.log('✅ Tiket berhasil direfresh!');
+        } else {
+            console.log('❌ Gagal refresh tiket:', result.message);
         }
     });
 }
