@@ -1488,6 +1488,10 @@ function onScanError(errorMessage) {
 // REGISTRASI PESERTA KE ACARA (FRONTEND)
 // ================================================================
 
+// ================================================================
+// REGISTRASI EVENT - PAKAI FUNGSI BARU
+// ================================================================
+
 function registerToEvent(eventId) {
     if (!currentUser) {
         alert('Silakan login terlebih dahulu!');
@@ -1499,11 +1503,11 @@ function registerToEvent(eventId) {
         return;
     }
     
-    // Tampilkan loading di container
     var container = document.getElementById('attendeeEvents');
     container.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Mendaftar ke acara...</div>';
     
-    callAPI('registerToEvent', {
+    // 🔥 PASTIKAN NAMA FUNGSI DI SINI: daftarEventWithQR
+    callAPI('daftarEventWithQR', {
         eventId: eventId,
         attendeeId: currentUser.id,
         attendeeName: currentUser.full_name,
@@ -1512,13 +1516,11 @@ function registerToEvent(eventId) {
     }, function(result) {
         if (result.success) {
             container.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> ' + result.message + '</div>';
-            // Refresh data setelah 2 detik
             setTimeout(function() {
                 loadAttendeeData();
             }, 2000);
         } else {
             container.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> ' + result.message + '</div>';
-            // Kembali ke tampilan normal setelah 3 detik
             setTimeout(function() {
                 loadAttendeeData();
             }, 3000);
