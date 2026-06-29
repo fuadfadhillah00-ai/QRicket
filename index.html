@@ -1442,68 +1442,283 @@ function renderTickets() {
         // RENDER: EVENTS
         // ================================================================
 
-        function renderEvents() {
-            var container = document.getElementById('attendeeEvents');
-            if (!container) return;
-
-            if (!allEvents || allEvents.length === 0) {
-                container.innerHTML =
-                    '<div class="empty-state"><i class="fas fa-calendar"></i><p>Belum ada acara tersedia</p></div>';
-                return;
+function renderEvents() {
+    var container = document.getElementById('attendeeEvents');
+    if (!container) return;
+    
+    if (!allEvents || allEvents.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fas fa-calendar"></i><p>Belum ada acara tersedia</p></div>';
+        return;
+    }
+    
+    var html = '';
+    for (var i = 0; i < allEvents.length; i++) {
+        var e = allEvents[i];
+        
+        // Hanya tampilkan acara yang aktif
+        if (e.status !== 'published' && e.status !== 'ongoing') continue;
+        
+        // Cek apakah sudah terdaftar
+        var isRegistered = false;
+        var isCheckedIn = false;
+        var hasFeedback = false;
+        
+        for (var j = 0; j < userTickets.length; j++) {
+            if (userTickets[j].event_id === e.id) {
+                isRegistered = true;
+                if (userTickets[j].is_checked_in === 'TRUE' || userTickets[j].is_checked_in === true) {
+                    isCheckedIn = true;
+                }
+                break;
             }
+        }
+        
+        // 🔥 CEK APAKAH SUDAH MEMBERI FEEDBACK (via API)
+        // Ini akan diupdate setelah render
+        var feedbackStatus = 'checking...';
+        var feedbackButtonHtml = '';
+        
+        // Rating
+        var ratingHtml = `<span id="rating-${e.id}" style="color:#f59e0b;font-size:13px;">⭐ (memuat...)</span>`;
+        
+        // Kuota
+        var quotaHtml = `<span id="quota-${e.id}" style="font-size:13px;">🎫 memuat...</span>`;
+        
+        html += `
+            <div style="padding:16px 0;border-bottom:1px solid rgba(124,58,237,0.1);">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                    <div>
+                        <strong>${e.name}</strong>
+                        <p style="font-size:13px;color:#94a3b8;">
+                            ${e.category || 'Acara'} • ${e.location || 'Lokasi'}
+                            ${e.start_date ? ' • 📅 ' + formatDate(e.start_date) : ''}
+                        </p>
+                        <p style="font-size:13px;color:#4a4a6a;display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+                            ${quotaHtml}
+                            ${e.ticket_price && e.ticket_price > 0 ? ' • 💰 Rp ' + formatNumber(e.ticket_price) : ' • 🆓 Gratis'}
+                            ${ratingHtml}
+                        </p>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                        ${isRegistered ? 
+                            '<span class="ticket-status active">✅ Terdaftar</span>' :
+                            `<button class="btn btn-primary btn-sm" onclick="registerToEvent('${e.id}')">
+                                <i class="fas fa-plus-circle"></i> Daftar
+                            </button>`
+                        }
+                        ${isCheckedIn ? 
+                            `<button class="btn btn-secondary btn-sm" onclick="openFeedbackModal('${e.id}')" id="feedbackBtn-${e.id}">
+                                <i class="fas fa-star"></i> Feedback
+                            </button>` : 
+                            ''
+                        }
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+    
+    // 🔥 UPDATE FEEDBACK STATUS & RATING
+    setTimeout(function() {
+        updateAllQuotas();
+        updateAllRatings();
+        checkFeedbackStatus();
+    }, 500);
+}
 
-            var html = '';
-            for (var i = 0; i < allEvents.length; i++) {
-                var e = allEvents[i];
+// ================================================================
+// CEK STATUS FEEDBACK PESERTA
+// ================================================================
 
-                if (e.status !== 'published' && e.status !== 'ongoing') continue;
-
-                var isRegistered = false;
-                for (var j = 0; j < userTickets.length; j++) {
-                    if (userTickets[j].event_id === e.id) {
-                        isRegistered = true;
-                        break;
+function checkFeedbackStatus() {
+    if (!currentUser || currentUser.role !== 'attendee') return;
+    
+    for (var i = 0; i < allEvents.length; i++) {
+        var eventId = allEvents[i].id;
+        if (!eventId) continue;
+        
+        // Cek apakah sudah memberi feedback
+        callAPI('hasGivenFeedback', {
+            eventId: eventId,
+            attendeeId: currentUser.id
+        }, function(result) {
+            if (result.success) {
+                var hasGiven = result.data.hasGiven;
+                // Update tombol feedback
+                var btn = document.getElementById('feedbackBtn-' + eventId);
+                if (btn) {
+                    if (hasGiven) {
+                        btn.innerHTML = '<i class="fas fa-check"></i> Sudah Feedback';
+                        btn.style.opacity = '0.5';
+                        btn.disabled = true;
+                    } else {
+                        btn.innerHTML = '<i class="fas fa-star"></i> Feedback';
+                        btn.style.opacity = '1';
+                        btn.disabled = false;
                     }
                 }
-
-                var ratingHtml = `<span id="rating-${e.id}" style="color:#f59e0b;font-size:13px;">⭐ (memuat...)</span>`;
-                var quotaHtml = `<span id="quota-${e.id}" style="font-size:13px;">🎫 memuat...</span>`;
-
-                html += `
-                        <div style="padding:16px 0;border-bottom:1px solid rgba(124,58,237,0.1);">
-                            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-                                <div>
-                                    <strong>${e.name}</strong>
-                                    <p style="font-size:13px;color:#94a3b8;">
-                                        ${e.category || 'Acara'} • ${e.location || 'Lokasi'}
-                                        ${e.start_date ? ' • 📅 ' + formatDate(e.start_date) : ''}
-                                    </p>
-                                    <p style="font-size:13px;color:#4a4a6a;display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-                                        ${quotaHtml}
-                                        ${e.ticket_price && e.ticket_price > 0 ? ' • 💰 Rp ' + formatNumber(e.ticket_price) : ' • 🆓 Gratis'}
-                                        ${ratingHtml}
-                                    </p>
-                                </div>
-                                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                                    ${isRegistered ? 
-                                        '<span class="ticket-status active">✅ Terdaftar</span>' :
-                                        `<button class="btn btn-primary btn-sm" onclick="registerToEvent('${e.id}')">
-                                            <i class="fas fa-plus-circle"></i> Daftar
-                                        </button>`
-                                    }
-                                </div>
-                            </div>
-                        </div>
-                    `;
             }
-            container.innerHTML = html;
+        });
+    }
+}
 
-            setTimeout(function() {
-                updateAllQuotas();
-                updateAllRatings();
-            }, 500);
+// ================================================================
+// OPEN FEEDBACK MODAL UNTUK ACARA TERTENTU
+// ================================================================
+
+var selectedEventId = null;
+
+function openFeedbackModal(eventId) {
+    if (!currentUser) {
+        alert('Silakan login terlebih dahulu!');
+        return;
+    }
+    
+    if (currentUser.role !== 'attendee') {
+        alert('Hanya peserta yang bisa memberi feedback!');
+        return;
+    }
+    
+    selectedEventId = eventId;
+    
+    // Cari nama acara
+    var eventName = '';
+    for (var i = 0; i < allEvents.length; i++) {
+        if (allEvents[i].id === eventId) {
+            eventName = allEvents[i].name;
+            break;
         }
+    }
+    
+    // Buat modal
+    var modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'feedbackModal';
+    
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width:440px;">
+            <button class="close-btn" onclick="closeFeedbackModal()">✕</button>
+            
+            <div class="invoice-title">⭐ Feedback Acara</div>
+            <div class="invoice-subtitle">${eventName || 'Acara'}</div>
+            
+            <div class="form-group">
+                <label>Rating</label>
+                <div class="star-rating" id="feedbackStarRating">
+                    <span onclick="setFeedbackRating(1)">☆</span>
+                    <span onclick="setFeedbackRating(2)">☆</span>
+                    <span onclick="setFeedbackRating(3)">☆</span>
+                    <span onclick="setFeedbackRating(4)">☆</span>
+                    <span onclick="setFeedbackRating(5)">☆</span>
+                    <span id="feedbackRatingDisplay" style="font-size:16px;color:#94a3b8;margin-left:8px;">Pilih rating</span>
+                </div>
+                <input type="hidden" id="feedbackSelectedRating" value="0">
+            </div>
+            <div class="form-group">
+                <label>Feedback (opsional)</label>
+                <textarea id="feedbackTextModal" placeholder="Bagaimana pengalaman Anda di acara ini?" style="min-height:80px;"></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="submitFeedbackModal()" style="width:100%;justify-content:center;">
+                <i class="fas fa-paper-plane"></i> Kirim Feedback
+            </button>
+            <div id="feedbackModalResult"></div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Reset rating
+    setFeedbackRating(0);
+}
 
+function closeFeedbackModal() {
+    var modal = document.getElementById('feedbackModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// ================================================================
+// FEEDBACK RATING FUNCTIONS
+// ================================================================
+
+var feedbackSelectedRating = 0;
+
+function setFeedbackRating(rating) {
+    feedbackSelectedRating = rating;
+    document.getElementById('feedbackSelectedRating').value = rating;
+    var display = document.getElementById('feedbackRatingDisplay');
+    if (rating === 0) {
+        display.textContent = 'Pilih rating';
+    } else {
+        display.textContent = rating + ' ★';
+    }
+    
+    var stars = document.querySelectorAll('#feedbackStarRating span');
+    stars.forEach(function(star, index) {
+        if (index < rating) {
+            star.style.color = '#f59e0b';
+            star.textContent = '★';
+        } else {
+            star.style.color = '#4a4a6a';
+            star.textContent = '☆';
+        }
+    });
+}
+
+function submitFeedbackModal() {
+    var rating = parseInt(document.getElementById('feedbackSelectedRating').value);
+    var feedback = document.getElementById('feedbackTextModal').value.trim();
+    var resultDiv = document.getElementById('feedbackModalResult');
+    
+    if (rating === 0) {
+        resultDiv.innerHTML = '<div class="alert alert-error">Silakan pilih rating!</div>';
+        return;
+    }
+    
+    if (!selectedEventId) {
+        resultDiv.innerHTML = '<div class="alert alert-error">Acara tidak ditemukan!</div>';
+        return;
+    }
+    
+    resultDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Mengirim feedback...</div>';
+    
+    // Cari ticket_code dari acara ini
+    var ticketCode = '';
+    for (var i = 0; i < userTickets.length; i++) {
+        if (userTickets[i].event_id === selectedEventId) {
+            ticketCode = userTickets[i].ticket_code || '';
+            break;
+        }
+    }
+    
+    callAPI('submitFeedback', {
+        eventId: selectedEventId,
+        attendeeId: currentUser.id,
+        rating: rating,
+        feedback: feedback,
+        ticketCode: ticketCode
+    }, function(result) {
+        if (result.success) {
+            resultDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> ' + result.message + '</div>';
+            // Update tombol feedback
+            var btn = document.getElementById('feedbackBtn-' + selectedEventId);
+            if (btn) {
+                btn.innerHTML = '<i class="fas fa-check"></i> Sudah Feedback';
+                btn.style.opacity = '0.5';
+                btn.disabled = true;
+            }
+            setTimeout(function() {
+                closeFeedbackModal();
+                loadAttendeeData();
+            }, 1500);
+        } else {
+            resultDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> ' + result.message + '</div>';
+        }
+    });
+}
+        
         function renderOrganizerEvents() {
             var container = document.getElementById('organizerEvents');
             if (!container) return;
