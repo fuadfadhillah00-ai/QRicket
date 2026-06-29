@@ -478,6 +478,36 @@
 .ticket-card.used-ticket img {
     opacity: 0.3;
 }
+
+        /* ========== TIKET HANGUS ========== */
+.ticket-card.used {
+    opacity: 0.6;
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+.ticket-status.used {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.ticket-status.active {
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* Badge HANGUS */
+.hangus-badge {
+    background: #ef4444;
+    color: white;
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
     </style>
 </head>
 <body>
@@ -852,25 +882,26 @@ JAVASCRIPT
     // DASHBOARD
     // ================================================================
     
-    function loadDashboard() {
-        if (!currentUser) return;
-        
-        document.getElementById('dashboardGreeting').textContent = '👋 Halo, ' + (currentUser.full_name || 'User') + '!';
-        document.getElementById('dashboardRole').textContent = 'Role: ' + (currentUser.role === 'admin' ? 'Admin Platform' : currentUser.role === 'organizer' ? 'Penyelenggara' : 'Peserta');
-        
-        var content = document.getElementById('dashboardContent');
-        
-        if (currentUser.role === 'admin') {
-            content.innerHTML = renderAdminDashboard();
-            loadAdminData();
-        } else if (currentUser.role === 'organizer') {
-            content.innerHTML = renderOrganizerDashboard();
-            loadOrganizerData();
-        } else {
-            content.innerHTML = renderAttendeeDashboard();
-            loadAttendeeData();
-        }
+function loadDashboard() {
+    if (!currentUser) return;
+    
+    document.getElementById('dashboardGreeting').textContent = '👋 Halo, ' + (currentUser.full_name || 'User') + '!';
+    document.getElementById('dashboardRole').textContent = 'Role: ' + (currentUser.role === 'admin' ? 'Admin Platform' : currentUser.role === 'organizer' ? 'Penyelenggara' : 'Peserta');
+    
+    var content = document.getElementById('dashboardContent');
+    
+    if (currentUser.role === 'admin') {
+        content.innerHTML = renderAdminDashboard();
+        loadAdminData();
+    } else if (currentUser.role === 'organizer') {
+        content.innerHTML = renderOrganizerDashboard();
+        loadOrganizerData();
+    } else {
+        content.innerHTML = renderAttendeeDashboard();
+        // 🔥 PANGGIL LOAD ATTENDEE DATA
+        loadAttendeeData();
     }
+}
     
     // ================================================================
     // RENDER: ATTENDEE DASHBOARD
@@ -1001,23 +1032,23 @@ function renderOrganizerDashboard() {
     // LOAD DATA FUNCTIONS
     // ================================================================
     
-    function loadAttendeeData() {
-        // Load tickets
-        callAPI('getTicketsByAttendee', { attendeeId: currentUser.id }, function(result) {
-            if (result.success) {
-                userTickets = result.data || [];
-                renderTickets();
-            }
-        });
-        
-        // Load events
-        callAPI('getEvents', {}, function(result) {
-            if (result.success) {
-                allEvents = result.data || [];
-                renderEvents();
-            }
-        });
-    }
+function loadAttendeeData() {
+    // 🔥 LOAD TIKET
+    callAPI('getTicketsByAttendee', { attendeeId: currentUser.id }, function(result) {
+        if (result.success) {
+            userTickets = result.data || [];
+            renderTickets();
+        }
+    });
+    
+    // 🔥 LOAD EVENTS
+    callAPI('getEvents', {}, function(result) {
+        if (result.success) {
+            allEvents = result.data || [];
+            renderEvents();
+        }
+    });
+}
     
     function loadOrganizerData() {
         callAPI('getEventsByOrganizer', { organizerId: currentUser.id }, function(result) {
@@ -1061,30 +1092,32 @@ function renderTickets() {
     for (var i = 0; i < userTickets.length; i++) {
         var t = userTickets[i];
         
-        // 🔥 CEK STATUS TIKET
+        // 🔥 CEK STATUS DARI DATABASE (bukan dari cache)
         var isUsed = t.is_checked_in === 'TRUE';
         var statusClass = isUsed ? 'used' : 'active';
-        var statusText = isUsed ? '❌ Sudah Check-in (Hangus)' : '🟢 Aktif';
+        var statusText = isUsed ? '❌ Hangus (Sudah Check-in)' : '🟢 Aktif';
         
-        // QR Code tetap ditampilkan tapi dengan efek berbeda
         var qrDisplay = '';
         if (t.qr_code && t.qr_code.startsWith('http')) {
-            qrDisplay = `<img src="${t.qr_code}" alt="QR Code" style="width:80px;height:80px;border-radius:8px;object-fit:cover; ${isUsed ? 'opacity:0.4;' : ''}">`;
+            qrDisplay = `<img src="${t.qr_code}" alt="QR Code" style="width:80px;height:80px;border-radius:8px;object-fit:cover; ${isUsed ? 'opacity:0.3;' : ''}">`;
         } else {
-            qrDisplay = `<div class="qr-placeholder" style="${isUsed ? 'opacity:0.4;' : ''}"><i class="fas fa-qrcode"></i></div>`;
+            qrDisplay = `<div class="qr-placeholder" style="${isUsed ? 'opacity:0.3;' : ''}"><i class="fas fa-qrcode"></i></div>`;
         }
         
+        // Jika hangus, tambahkan watermark
+        var watermark = isUsed ? '<div style="position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;padding:2px 10px;border-radius:8px;font-size:10px;font-weight:700;transform:rotate(15deg);">HANGUS</div>' : '';
+        
         html += `
-            <div class="ticket-card" style="${isUsed ? 'opacity:0.7;border-color:rgba(239,68,68,0.2);' : ''}">
-                <div style="flex-shrink:0;">
+            <div class="ticket-card" style="${isUsed ? 'opacity:0.6;border-color:rgba(239,68,68,0.2);' : ''}">
+                <div style="flex-shrink:0;position:relative;">
                     ${qrDisplay}
-                    ${isUsed ? '<div style="position:absolute;background:#ef4444;color:white;padding:2px 10px;border-radius:8px;font-size:10px;font-weight:700;margin-top:-5px;">HANGUS</div>' : ''}
+                    ${watermark}
                 </div>
                 <div class="ticket-info">
                     <h4>${t.ticket_code || 'Tiket'}</h4>
                     <p><i class="fas fa-user"></i> ${t.attendee_name || 'Nama'}</p>
                     <p><i class="fas fa-envelope"></i> ${t.attendee_email || 'Email'}</p>
-                    ${isUsed ? `<p style="color:#f87171;font-size:12px;"><i class="fas fa-clock"></i> Digunakan pada: ${formatDate(t.checked_in_at)}</p>` : ''}
+                    ${isUsed ? `<p style="color:#f87171;font-size:12px;"><i class="fas fa-clock"></i> Digunakan: ${formatDate(t.checked_in_at)}</p>` : ''}
                 </div>
                 <div style="text-align:center;">
                     <span class="ticket-status ${statusClass}">${statusText}</span>
@@ -1258,6 +1291,10 @@ function openScanner() {
     startScanner();
 }
     
+// ================================================================
+// HANDLE MANUAL CHECK-IN - DENGAN REFRESH DATA
+// ================================================================
+
 function handleManualCheckin() {
     var code = document.getElementById('manualTicketCode').value.trim();
     var resultDiv = document.getElementById('scanResult');
@@ -1287,13 +1324,15 @@ function handleManualCheckin() {
                 </div>
             `;
             document.getElementById('manualTicketCode').value = '';
-            loadAttendeeData(); // Refresh data
+            
+            // 🔥 REFRESH DATA TIKET
+            refreshAllData();
+            
         } else {
-            // 🔥 TIKET HANGUS ATAU TIDAK VALID
             resultDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> ' + result.message + '</div>';
             
-            // Refresh data agar status tiket terupdate
-            loadAttendeeData();
+            // 🔥 TETAP REFRESH DATA (untuk update status)
+            refreshAllData();
         }
     });
 }
@@ -1389,14 +1428,17 @@ function stopScanner() {
     }
 }
 
+// ================================================================
+// ON SCAN SUCCESS - DENGAN REFRESH DATA
+// ================================================================
+
 function onScanSuccess(decodedText, decodedResult) {
-    // Hentikan scanner setelah scan berhasil
+    // Hentikan scanner
     stopScanner();
     
-    // decodedText adalah kode tiket
+    // Isi manual input
     document.getElementById('manualTicketCode').value = decodedText;
     
-    // Proses check-in otomatis
     var resultDiv = document.getElementById('scanResult');
     resultDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> QR Code terdeteksi: ' + decodedText + '</div>';
     
@@ -1579,6 +1621,35 @@ function formatDate(dateString) {
 function formatNumber(num) {
     if (!num) return '0';
     return Number(num).toLocaleString('id-ID');
+}
+
+// ================================================================
+// REFRESH SEMUA DATA
+// ================================================================
+
+function refreshAllData() {
+    // Refresh tiket peserta
+    if (currentUser) {
+        callAPI('getTicketsByAttendee', { attendeeId: currentUser.id }, function(result) {
+            if (result.success) {
+                userTickets = result.data || [];
+                
+                // Update tampilan tiket
+                var container = document.getElementById('attendeeTickets');
+                if (container) {
+                    renderTickets();
+                }
+                
+                // Update tampilan acara (refresh status daftar)
+                var eventContainer = document.getElementById('attendeeEvents');
+                if (eventContainer) {
+                    renderEvents();
+                }
+                
+                console.log('✅ Data berhasil direfresh!');
+            }
+        });
+    }
 }
     
     // ================================================================
