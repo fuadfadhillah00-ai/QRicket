@@ -1138,6 +1138,22 @@ function renderOrganizerDashboard() {
                 <div id="organizerEvents"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat acara...</p></div></div>
             </div>
         </div>
+
+        // Di bagian organizerEvents, tambahkan tombol kirim email
+html += `
+    <div style="padding:12px 0;border-bottom:1px solid rgba(124,58,237,0.1);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div>
+            <strong>${ev.name}</strong>
+            <p style="font-size:13px;color:#94a3b8;">${ev.event_code}</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:13px;color:#4a4a6a;">🎫 ${ev.max_quota || 0} tiket</span>
+            <button class="btn btn-primary btn-sm" onclick="kirimEmailBulk('${ev.id}')">
+                <i class="fas fa-envelope"></i> Kirim Email
+            </button>
+        </div>
+    </div>
+`;
         
         <div class="card" style="margin-top:24px;">
             <div class="section-title"><i class="fas fa-qrcode"></i> Scanner QR Code</div>
@@ -1916,6 +1932,38 @@ function refreshTicketsOnly() {
 }
 
 // ================================================================
+// KIRIM EMAIL KE SEMUA PESERTA ACARA
+// ================================================================
+
+function kirimEmailBulk(eventId) {
+    if (!confirm('Kirim email tiket ke semua peserta acara ini?')) {
+        return;
+    }
+    
+    var alertDiv = document.getElementById('createEventAlert') || document.body;
+    alertDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Mengirim email...</div>';
+    
+    callAPI('kirimEmailBulk', { eventId: eventId }, function(result) {
+        if (result.success) {
+            alertDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> ' + result.message + '</div>';
+        } else {
+            alertDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> ' + result.message + '</div>';
+        }
+    });
+}
+
+// Kirim email per tiket (untuk digunakan setelah daftar/bayar)
+function kirimEmailPerTiket(ticketCode) {
+    callAPI('kirimEmailTiket', { ticketCode: ticketCode }, function(result) {
+        if (result.success) {
+            console.log('✅ Email terkirim:', result.message);
+        } else {
+            console.log('❌ Gagal kirim email:', result.message);
+        }
+    });
+}
+    
+// ================================================================
 // TAMPILKAN INVOICE MODAL
 // ================================================================
 
@@ -2024,6 +2072,10 @@ function konfirmasiBayar(ticketCode) {
         if (result.success) {
             alert('✅ ' + result.message);
             closeInvoiceModal();
+            
+            // 🔥 KIRIM EMAIL TIKET OTOMATIS
+            kirimEmailPerTiket(ticketCode);
+            
             loadAttendeeData();
         } else {
             alert('❌ ' + result.message);
