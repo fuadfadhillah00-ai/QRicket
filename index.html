@@ -869,14 +869,17 @@ JAVASCRIPT
     // AUTH: LOGOUT
     // ================================================================
     
-    function handleLogout() {
-        currentUser = null;
-        localStorage.removeItem('qricket_user');
-        userTickets = [];
-        allEvents = [];
-        showPage('landing');
-        updateNav();
-    }
+function handleLogout() {
+    // 🔥 STOP AUTO REFRESH
+    stopAutoRefresh();
+    
+    currentUser = null;
+    localStorage.removeItem('qricket_user');
+    userTickets = [];
+    allEvents = [];
+    showPage('landing');
+    updateNav();
+}
     
     // ================================================================
     // DASHBOARD
@@ -1095,7 +1098,7 @@ function renderTickets() {
     for (var i = 0; i < userTickets.length; i++) {
         var t = userTickets[i];
         
-        // 🔥 CEK STATUS DARI DATABASE (bukan dari cache)
+        // 🔥 CEK STATUS DARI DATABASE (Langsung dari userTickets yang sudah direfresh)
         var isUsed = t.is_checked_in === 'TRUE';
         var statusClass = isUsed ? 'used' : 'active';
         var statusText = isUsed ? '❌ Hangus (Sudah Check-in)' : '🟢 Aktif';
@@ -1107,17 +1110,15 @@ function renderTickets() {
             qrDisplay = `<div class="qr-placeholder" style="${isUsed ? 'opacity:0.3;' : ''}"><i class="fas fa-qrcode"></i></div>`;
         }
         
-        // Jika hangus, tambahkan watermark
-        var watermark = isUsed ? '<div style="position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;padding:2px 10px;border-radius:8px;font-size:10px;font-weight:700;transform:rotate(15deg);">HANGUS</div>' : '';
+        var watermark = isUsed ? '<span class="hangus-badge" style="background:#ef4444;color:white;padding:2px 12px;border-radius:20px;font-size:10px;font-weight:700;">HANGUS</span>' : '';
         
         html += `
-            <div class="ticket-card" style="${isUsed ? 'opacity:0.6;border-color:rgba(239,68,68,0.2);' : ''}">
+            <div class="ticket-card" style="${isUsed ? 'opacity:0.7;border-color:rgba(239,68,68,0.2);' : ''}">
                 <div style="flex-shrink:0;position:relative;">
                     ${qrDisplay}
-                    ${watermark}
                 </div>
                 <div class="ticket-info">
-                    <h4>${t.ticket_code || 'Tiket'}</h4>
+                    <h4>${t.ticket_code || 'Tiket'} ${watermark}</h4>
                     <p><i class="fas fa-user"></i> ${t.attendee_name || 'Nama'}</p>
                     <p><i class="fas fa-envelope"></i> ${t.attendee_email || 'Email'}</p>
                     ${isUsed ? `<p style="color:#f87171;font-size:12px;"><i class="fas fa-clock"></i> Digunakan: ${formatDate(t.checked_in_at)}</p>` : ''}
@@ -1327,15 +1328,15 @@ function handleManualCheckin() {
                 </div>
             `;
             document.getElementById('manualTicketCode').value = '';
-            
-            // 🔥 REFRESH DATA TIKET
-            refreshAllData();
-            
         } else {
             resultDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> ' + result.message + '</div>';
-            
-            // 🔥 TETAP REFRESH DATA (untuk update status)
-            refreshAllData();
+        }
+        
+        // 🔥 PASTIKAN REFRESH SETELAH SCAN (SUKSES ATAU GAGAL)
+        if (currentUser && currentUser.role === 'attendee') {
+            setTimeout(function() {
+                refreshTicketsOnly();
+            }, 500);
         }
     });
 }
@@ -1653,6 +1654,63 @@ function refreshAllData() {
             }
         });
     }
+}
+
+// ================================================================
+// REFRESH TIKET OTOMATIS (SETIAP 3 DETIK)
+// ================================================================
+
+var refreshInterval = null;
+
+function startAutoRefresh() {
+    // Hentikan interval lama jika ada
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+    }
+    
+    // Mulai interval baru (setiap 3 detik)
+    refreshInterval = setInterval(function() {
+        if (currentUser && currentUser.role === 'attendee') {
+            refreshTicketsOnly();
+        }
+    }, 3000);
+}
+
+function stopAutoRefresh() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+    }
+}
+
+function refreshTicketsOnly() {
+    if (!currentUser) return;
+    
+    callAPI('getTicketsByAttendee', { attendeeId: currentUser.id }, function(result) {
+        if (result.success) {
+            var newTickets = result.data || [];
+            
+            // Cek apakah ada perubahan status
+            var hasChanged = false;
+            if (userTickets.length !== newTickets.length) {
+                hasChanged = true;
+            } else {
+                for (var i = 0; i < userTickets.length; i++) {
+                    if (userTickets[i].is_checked_in !== newTickets[i].is_checked_in) {
+                        hasChanged = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (hasChanged) {
+                userTickets = newTickets;
+                renderTickets();
+                console.log('🔄 Tiket di-refresh otomatis!');
+            }
+        }
+    });
 }
     
     // ================================================================
