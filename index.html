@@ -2014,27 +2014,25 @@
         // SERTIFIKAT
         // ================================================================
 
-        function generateCertificate(ticketCode) {
-            if (!confirm('Generate sertifikat untuk tiket ini?')) {
-                return;
-            }
+function generateCertificate(ticketCode) {
+    if (!confirm('Generate sertifikat untuk tiket ini?\n\n⚠️ Sertifikat hanya bisa diambil jika Anda sudah check-in.')) {
+        return;
+    }
 
-            var alertDiv = document.getElementById('attendeeTickets') || document.body;
-            alertDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Membuat sertifikat...</div>';
+    var alertDiv = document.getElementById('attendeeTickets') || document.body;
+    alertDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Memproses sertifikat...</div>';
 
-            callAPI('generateCertificate', { ticketCode: ticketCode }, function(result) {
-                if (result.success) {
-                    alertDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> ' + result
-                        .message + '</div>';
-                } else {
-                    alertDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> ' + result
-                        .message + '</div>';
-                }
-                setTimeout(function() {
-                    loadAttendeeData();
-                }, 3000);
-            });
+    callAPI('generateCertificate', { ticketCode: ticketCode }, function(result) {
+        if (result.success) {
+            alertDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> ' + result.message + '</div>';
+        } else {
+            alertDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> ' + result.message + '</div>';
         }
+        setTimeout(function() {
+            loadAttendeeData();
+        }, 3000);
+    });
+}
 
         // ================================================================
         // FEEDBACK & RATING
