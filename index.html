@@ -508,6 +508,163 @@
     text-transform: uppercase;
     letter-spacing: 1px;
 }
+
+    /* ========== MODAL INVOICE ========== */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+}
+
+.modal-content {
+    background: #1a1a2e;
+    border-radius: 24px;
+    max-width: 480px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 32px;
+    border: 1px solid rgba(124, 58, 237, 0.2);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.modal-content .close-btn {
+    float: right;
+    background: none;
+    border: none;
+    color: #94a3b8;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.modal-content .close-btn:hover {
+    color: #fff;
+}
+
+.invoice-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: #f0f0ff;
+}
+
+.invoice-subtitle {
+    color: #94a3b8;
+    font-size: 14px;
+    margin-bottom: 24px;
+}
+
+.invoice-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(124, 58, 237, 0.1);
+    font-size: 14px;
+}
+
+.invoice-item .label {
+    color: #94a3b8;
+}
+
+.invoice-item .value {
+    color: #f0f0ff;
+    font-weight: 600;
+}
+
+.invoice-total {
+    display: flex;
+    justify-content: space-between;
+    padding: 16px 0;
+    font-size: 18px;
+    font-weight: 700;
+    border-top: 2px solid rgba(124, 58, 237, 0.2);
+    margin-top: 8px;
+}
+
+.invoice-total .value {
+    color: #a855f7;
+}
+
+.qris-container {
+    text-align: center;
+    margin: 20px 0;
+    padding: 20px;
+    background: white;
+    border-radius: 16px;
+}
+
+.qris-container img {
+    max-width: 200px;
+    width: 100%;
+    border-radius: 12px;
+}
+
+.qris-container .qris-label {
+    color: #1a1a2e;
+    font-weight: 600;
+    margin-top: 8px;
+    font-size: 14px;
+}
+
+.invoice-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.invoice-actions .btn {
+    flex: 1;
+    justify-content: center;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+}
+.btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(16, 185, 129, 0.6);
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+}
+.btn-warning:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(245, 158, 11, 0.6);
+}
+
+.payment-status {
+    display: inline-block;
+    padding: 4px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.payment-status.pending {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.payment-status.paid {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
     </style>
 </head>
 <body>
@@ -1485,11 +1642,7 @@ function onScanError(errorMessage) {
 }
 
 // ================================================================
-// REGISTRASI PESERTA KE ACARA (FRONTEND)
-// ================================================================
-
-// ================================================================
-// REGISTRASI EVENT - PAKAI FUNGSI BARU
+// REGISTRASI EVENT DENGAN INVOICE & QRIS
 // ================================================================
 
 function registerToEvent(eventId) {
@@ -1503,11 +1656,24 @@ function registerToEvent(eventId) {
         return;
     }
     
-    var container = document.getElementById('attendeeEvents');
-    container.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Mendaftar ke acara...</div>';
+    // Cari data acara
+    var selectedEvent = null;
+    for (var i = 0; i < allEvents.length; i++) {
+        if (allEvents[i].id === eventId) {
+            selectedEvent = allEvents[i];
+            break;
+        }
+    }
     
-    // 🔥 PASTIKAN NAMA FUNGSI DI SINI: daftarEventWithQR
-    callAPI('daftarEventWithQR', {
+    if (!selectedEvent) {
+        alert('Acara tidak ditemukan!');
+        return;
+    }
+    
+    var container = document.getElementById('attendeeEvents');
+    container.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Memproses pendaftaran...</div>';
+    
+    callAPI('daftarEventDenganInvoice', {
         eventId: eventId,
         attendeeId: currentUser.id,
         attendeeName: currentUser.full_name,
@@ -1515,6 +1681,11 @@ function registerToEvent(eventId) {
         attendeePhone: currentUser.phone || ''
     }, function(result) {
         if (result.success) {
+            var data = result.data;
+            
+            // 🔥 TAMPILKAN INVOICE MODAL
+            showInvoiceModal(data, selectedEvent);
+            
             container.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> ' + result.message + '</div>';
             setTimeout(function() {
                 loadAttendeeData();
@@ -1743,7 +1914,123 @@ function refreshTicketsOnly() {
         }
     });
 }
+
+// ================================================================
+// TAMPILKAN INVOICE MODAL
+// ================================================================
+
+function showInvoiceModal(data, event) {
+    var ticketPrice = data.ticketPrice || 0;
+    var isPaid = data.isPaid || false;
+    var isFree = ticketPrice === 0;
     
+    var priceDisplay = isFree ? '🆓 GRATIS' : 'Rp ' + Number(ticketPrice).toLocaleString('id-ID');
+    var statusDisplay = isFree ? 'paid' : 'pending';
+    var statusText = isFree ? '✅ Lunas (Gratis)' : '⏳ Menunggu Pembayaran';
+    
+    // Buat modal
+    var modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'invoiceModal';
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeInvoiceModal()">✕</button>
+            
+            <div class="invoice-title">🧾 Invoice Pendaftaran</div>
+            <div class="invoice-subtitle">${event.name}</div>
+            
+            <div class="invoice-item">
+                <span class="label">Kode Tiket</span>
+                <span class="value">${data.ticketCode}</span>
+            </div>
+            <div class="invoice-item">
+                <span class="label">Peserta</span>
+                <span class="value">${currentUser.full_name}</span>
+            </div>
+            <div class="invoice-item">
+                <span class="label">Email</span>
+                <span class="value">${currentUser.email}</span>
+            </div>
+            <div class="invoice-item">
+                <span class="label">Acara</span>
+                <span class="value">${event.name}</span>
+            </div>
+            <div class="invoice-item">
+                <span class="label">Status Pembayaran</span>
+                <span class="payment-status ${statusDisplay}">${statusText}</span>
+            </div>
+            
+            <div class="invoice-total">
+                <span>Total</span>
+                <span class="value">${priceDisplay}</span>
+            </div>
+            
+            ${!isFree ? `
+                <div class="qris-container">
+                    <img src="https://i.imgur.com/enH23P3.jpeg" alt="QRIS Code">
+                    <div class="qris-label">📱 Scan QRIS untuk membayar</div>
+                    <p style="font-size:12px;color:#666;margin-top:8px;">
+                        Gunakan aplikasi M-Banking atau QRIS
+                    </p>
+                </div>
+                
+                <div class="invoice-actions">
+                    <button class="btn btn-success" onclick="konfirmasiBayar('${data.ticketCode}')">
+                        <i class="fas fa-check-circle"></i> Saya Sudah Bayar
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeInvoiceModal()">
+                        <i class="fas fa-times"></i> Tutup
+                    </button>
+                </div>
+            ` : `
+                <div style="text-align:center;padding:16px 0;color:#34d399;">
+                    <i class="fas fa-check-circle" style="font-size:48px;"></i>
+                    <p style="margin-top:8px;">Tiket GRATIS! Anda sudah terdaftar.</p>
+                </div>
+                <div class="invoice-actions">
+                    <button class="btn btn-primary" onclick="closeInvoiceModal()" style="flex:1;justify-content:center;">
+                        <i class="fas fa-check"></i> OK
+                    </button>
+                </div>
+            `}
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+function closeInvoiceModal() {
+    var modal = document.getElementById('invoiceModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// ================================================================
+// KONFIRMASI PEMBAYARAN
+// ================================================================
+
+function konfirmasiBayar(ticketCode) {
+    if (!confirm('Apakah Anda sudah melakukan pembayaran?')) {
+        return;
+    }
+    
+    var resultDiv = document.getElementById('scanResult') || document.body;
+    
+    callAPI('konfirmasiPembayaran', {
+        ticketCode: ticketCode
+    }, function(result) {
+        if (result.success) {
+            alert('✅ ' + result.message);
+            closeInvoiceModal();
+            loadAttendeeData();
+        } else {
+            alert('❌ ' + result.message);
+        }
+    });
+}
+
     // ================================================================
     // INITIALIZATION
     // ================================================================
