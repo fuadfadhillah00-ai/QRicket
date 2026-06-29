@@ -1038,6 +1038,9 @@ function loadAttendeeData() {
         if (result.success) {
             userTickets = result.data || [];
             renderTickets();
+            
+            // 🔥 MULAI AUTO REFRESH
+            startAutoRefresh();
         }
     });
     
