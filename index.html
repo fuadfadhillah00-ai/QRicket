@@ -446,6 +446,38 @@
             .container { padding: 12px; }
             .ticket-card { flex-direction: column; text-align: center; }
         }
+
+        /* Tiket Hangus */
+.ticket-card.used-ticket {
+    opacity: 0.6;
+    border-color: rgba(239, 68, 68, 0.3);
+    position: relative;
+}
+
+.ticket-card.used-ticket::after {
+    content: "HANGUS";
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #ef4444;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.ticket-status.used {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* QR Code hangus */
+.ticket-card.used-ticket img {
+    opacity: 0.3;
+}
     </style>
 </head>
 <body>
@@ -1028,31 +1060,35 @@ function renderTickets() {
     var html = '';
     for (var i = 0; i < userTickets.length; i++) {
         var t = userTickets[i];
-        var statusClass = t.is_checked_in === 'TRUE' ? 'used' : 'active';
-        var statusText = t.is_checked_in === 'TRUE' ? '✅ Sudah Check-in' : '🟢 Aktif';
         
-        // 🔥 TAMPILKAN QR CODE GAMBAR ASLI
+        // 🔥 CEK STATUS TIKET
+        var isUsed = t.is_checked_in === 'TRUE';
+        var statusClass = isUsed ? 'used' : 'active';
+        var statusText = isUsed ? '❌ Sudah Check-in (Hangus)' : '🟢 Aktif';
+        
+        // QR Code tetap ditampilkan tapi dengan efek berbeda
         var qrDisplay = '';
         if (t.qr_code && t.qr_code.startsWith('http')) {
-            qrDisplay = `<img src="${t.qr_code}" alt="QR Code" style="width:80px;height:80px;border-radius:8px;object-fit:cover;">`;
+            qrDisplay = `<img src="${t.qr_code}" alt="QR Code" style="width:80px;height:80px;border-radius:8px;object-fit:cover; ${isUsed ? 'opacity:0.4;' : ''}">`;
         } else {
-            qrDisplay = `<div class="qr-placeholder"><i class="fas fa-qrcode"></i></div>`;
+            qrDisplay = `<div class="qr-placeholder" style="${isUsed ? 'opacity:0.4;' : ''}"><i class="fas fa-qrcode"></i></div>`;
         }
         
         html += `
-            <div class="ticket-card">
+            <div class="ticket-card" style="${isUsed ? 'opacity:0.7;border-color:rgba(239,68,68,0.2);' : ''}">
                 <div style="flex-shrink:0;">
                     ${qrDisplay}
+                    ${isUsed ? '<div style="position:absolute;background:#ef4444;color:white;padding:2px 10px;border-radius:8px;font-size:10px;font-weight:700;margin-top:-5px;">HANGUS</div>' : ''}
                 </div>
                 <div class="ticket-info">
                     <h4>${t.ticket_code || 'Tiket'}</h4>
                     <p><i class="fas fa-user"></i> ${t.attendee_name || 'Nama'}</p>
                     <p><i class="fas fa-envelope"></i> ${t.attendee_email || 'Email'}</p>
-                    <p><i class="fas fa-tag"></i> ${t.ticket_type || 'regular'}</p>
+                    ${isUsed ? `<p style="color:#f87171;font-size:12px;"><i class="fas fa-clock"></i> Digunakan pada: ${formatDate(t.checked_in_at)}</p>` : ''}
                 </div>
                 <div style="text-align:center;">
                     <span class="ticket-status ${statusClass}">${statusText}</span>
-                    ${t.is_checked_in !== 'TRUE' && t.qr_code && t.qr_code.startsWith('http') ? 
+                    ${!isUsed && t.qr_code && t.qr_code.startsWith('http') ? 
                         `<button class="btn btn-primary btn-sm" onclick="showQRCode('${t.ticket_code}', '${t.qr_code}')" style="margin-top:8px;width:100%;">
                             <i class="fas fa-expand"></i> Perbesar
                         </button>` : 
@@ -1222,36 +1258,45 @@ function openScanner() {
     startScanner();
 }
     
-    function handleManualCheckin() {
-        var code = document.getElementById('manualTicketCode').value.trim();
-        var resultDiv = document.getElementById('scanResult');
-        if (!code) {
-            resultDiv.innerHTML = '<div class="alert alert-error">Masukkan kode tiket!</div>';
-            return;
-        }
-        if (!currentUser) {
-            resultDiv.innerHTML = '<div class="alert alert-error">Silakan login sebagai organizer!</div>';
-            return;
-        }
-        resultDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Memproses check-in...</div>';
-        
-        callAPI('checkin', {
-            ticketCode: code,
-            scannerId: currentUser.id
-        }, function(result) {
-            if (result.success) {
-                resultDiv.innerHTML = `
-                    <div class="alert alert-success">
-                        <i class="fas fa-check-circle"></i> ${result.message}
-                        <br><small>Peserta: ${result.data.attendeeName || '-'}</small>
-                    </div>
-                `;
-                loadOrganizerData();
-            } else {
-                resultDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> ' + result.message + '</div>';
-            }
-        });
+function handleManualCheckin() {
+    var code = document.getElementById('manualTicketCode').value.trim();
+    var resultDiv = document.getElementById('scanResult');
+    
+    if (!code) {
+        resultDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> Masukkan kode tiket!</div>';
+        return;
     }
+    
+    if (!currentUser) {
+        resultDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> Silakan login sebagai organizer!</div>';
+        return;
+    }
+    
+    resultDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Memproses check-in...</div>';
+    
+    callAPI('checkin', {
+        ticketCode: code,
+        scannerId: currentUser.id
+    }, function(result) {
+        if (result.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i> ${result.message}
+                    <br><small>Peserta: ${result.data.attendeeName || '-'}</small>
+                    <br><small>Email: ${result.data.attendeeEmail || '-'}</small>
+                </div>
+            `;
+            document.getElementById('manualTicketCode').value = '';
+            loadAttendeeData(); // Refresh data
+        } else {
+            // 🔥 TIKET HANGUS ATAU TIDAK VALID
+            resultDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> ' + result.message + '</div>';
+            
+            // Refresh data agar status tiket terupdate
+            loadAttendeeData();
+        }
+    });
+}
 
 // ================================================================
 // QR SCANNER FUNCTIONS
