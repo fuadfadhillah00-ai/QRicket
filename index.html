@@ -1344,89 +1344,99 @@
         // RENDER: TICKETS
         // ================================================================
 
-        function renderTickets() {
-            console.log('🔄 renderTickets() dipanggil!');
+function renderTickets() {
+    console.log('🔄 renderTickets() dipanggil!');
 
-            var container = document.getElementById('attendeeTickets');
-            if (!container) {
-                console.log('❌ Container attendeeTickets tidak ditemukan!');
-                return;
-            }
+    var container = document.getElementById('attendeeTickets');
+    if (!container) {
+        console.log('❌ Container attendeeTickets tidak ditemukan!');
+        return;
+    }
 
-            if (!userTickets) {
-                userTickets = [];
-            }
+    if (!userTickets) {
+        userTickets = [];
+    }
 
-            console.log('📊 Jumlah tiket:', userTickets.length);
+    console.log('📊 Jumlah tiket:', userTickets.length);
 
-            if (userTickets.length === 0) {
-                container.innerHTML = '<div class="empty-state"><i class="fas fa-ticket-alt"></i><p>Belum ada tiket</p></div>';
-                return;
-            }
+    if (userTickets.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fas fa-ticket-alt"></i><p>Belum ada tiket</p></div>';
+        return;
+    }
 
-            var html = '';
-            for (var i = 0; i < userTickets.length; i++) {
-                var t = userTickets[i];
+    var html = '';
+    for (var i = 0; i < userTickets.length; i++) {
+        var t = userTickets[i];
 
-                var isUsed = false;
-                if (t.is_checked_in === 'TRUE' || t.is_checked_in === true) {
-                    isUsed = true;
-                }
+        // 🔥 CEK APAKAH t.ticket_code ADA
+        var ticketCode = t.ticket_code || '';
+        console.log('🔍 Tiket #' + (i + 1) + ' - ticket_code: "' + ticketCode + '"');
 
-                console.log('🔍 Tiket #' + (i + 1) + ' - Kode: ' + t.ticket_code + ', is_checked_in: "' + t.is_checked_in +
-                    '" → ' + (isUsed ? 'HANGUS' : 'AKTIF'));
-
-                var statusClass = isUsed ? 'used' : 'active';
-                var statusText = isUsed ? '❌ Hangus (Sudah Check-in)' : '🟢 Aktif';
-
-                var qrDisplay = '';
-                if (t.qr_code && t.qr_code.startsWith('http')) {
-                    qrDisplay =
-                        `<img src="${t.qr_code}" alt="QR Code" style="width:80px;height:80px;border-radius:8px;object-fit:cover; ${isUsed ? 'opacity:0.3;' : ''}">`;
-                } else {
-                    qrDisplay =
-                        `<div class="qr-placeholder" style="${isUsed ? 'opacity:0.3;' : ''}"><i class="fas fa-qrcode"></i></div>`;
-                }
-
-                var watermark = isUsed ?
-                    '<span class="hangus-badge" style="background:#ef4444;color:white;padding:2px 12px;border-radius:20px;font-size:10px;font-weight:700;margin-left:8px;">HANGUS</span>' :
-                    '';
-                var usedTime = isUsed && t.checked_in_at ?
-                    `<p style="color:#f87171;font-size:12px;"><i class="fas fa-clock"></i> Digunakan: ${formatDate(t.checked_in_at)}</p>` :
-                    '';
-                var certButton = isUsed ?
-                    `<button class="btn btn-cert btn-sm" onclick="generateCertificate('${t.ticket_code}')" style="margin-top:8px;width:100%;">
-                            <i class="fas fa-certificate"></i> Sertifikat
-                        </button>` :
-                    '';
-
-                html += `
-                        <div class="ticket-card" style="${isUsed ? 'opacity:0.7;border-color:rgba(239,68,68,0.2);' : ''}">
-                            <div style="flex-shrink:0;position:relative;">
-                                ${qrDisplay}
-                            </div>
-                            <div class="ticket-info">
-                                <h4>${t.ticket_code || 'Tiket'} ${watermark}</h4>
-                                <p><i class="fas fa-user"></i> ${t.attendee_name || 'Nama'}</p>
-                                <p><i class="fas fa-envelope"></i> ${t.attendee_email || 'Email'}</p>
-                                ${usedTime}
-                            </div>
-                            <div style="text-align:center;">
-                                <span class="ticket-status ${statusClass}">${statusText}</span>
-                                ${!isUsed && t.qr_code && t.qr_code.startsWith('http') ? 
-                                    `<button class="btn btn-primary btn-sm" onclick="showQRCode('${t.ticket_code}', '${t.qr_code}')" style="margin-top:8px;width:100%;">
-                                        <i class="fas fa-expand"></i> Perbesar
-                                    </button>` : 
-                                    ''
-                                }
-                                ${certButton}
-                            </div>
-                        </div>
-                    `;
-            }
-            container.innerHTML = html;
-            console.log('✅ renderTickets() selesai!');
+        var isUsed = false;
+        if (t.is_checked_in === 'TRUE' || t.is_checked_in === true) {
+            isUsed = true;
         }
+
+        var statusClass = isUsed ? 'used' : 'active';
+        var statusText = isUsed ? '❌ Hangus (Sudah Check-in)' : '🟢 Aktif';
+
+        var qrDisplay = '';
+        if (t.qr_code && t.qr_code.startsWith('http')) {
+            qrDisplay = `<img src="${t.qr_code}" alt="QR Code" style="width:80px;height:80px;border-radius:8px;object-fit:cover; ${isUsed ? 'opacity:0.3;' : ''}">`;
+        } else {
+            qrDisplay = `<div class="qr-placeholder" style="${isUsed ? 'opacity:0.3;' : ''}"><i class="fas fa-qrcode"></i></div>`;
+        }
+
+        var watermark = isUsed ?
+            '<span class="hangus-badge" style="background:#ef4444;color:white;padding:2px 12px;border-radius:20px;font-size:10px;font-weight:700;margin-left:8px;">HANGUS</span>' :
+            '';
+        var usedTime = isUsed && t.checked_in_at ?
+            `<p style="color:#f87171;font-size:12px;"><i class="fas fa-clock"></i> Digunakan: ${formatDate(t.checked_in_at)}</p>` :
+            '';
+
+        // 🔥🔥🔥 TOMBOL SERTIFIKAT - PASTIKAN ticketCode TERKIRIM
+        var certButton = '';
+        if (isUsed && ticketCode) {
+            certButton = `
+                <button class="btn btn-cert btn-sm" onclick="generateCertificate('${ticketCode}')" style="margin-top:8px;width:100%;">
+                    <i class="fas fa-certificate"></i> Sertifikat
+                </button>
+            `;
+        } else if (isUsed && !ticketCode) {
+            certButton = `
+                <button class="btn btn-secondary btn-sm" style="margin-top:8px;width:100%;opacity:0.5;" disabled>
+                    <i class="fas fa-certificate"></i> Tidak ada kode
+                </button>
+            `;
+        }
+
+        html += `
+                <div class="ticket-card" style="${isUsed ? 'opacity:0.7;border-color:rgba(239,68,68,0.2);' : ''}">
+                    <div style="flex-shrink:0;position:relative;">
+                        ${qrDisplay}
+                    </div>
+                    <div class="ticket-info">
+                        <h4>${t.ticket_code || 'Tiket Tanpa Kode'} ${watermark}</h4>
+                        <p><i class="fas fa-user"></i> ${t.attendee_name || 'Nama'}</p>
+                        <p><i class="fas fa-envelope"></i> ${t.attendee_email || 'Email'}</p>
+                        ${usedTime}
+                    </div>
+                    <div style="text-align:center;">
+                        <span class="ticket-status ${statusClass}">${statusText}</span>
+                        ${!isUsed && ticketCode ? 
+                            `<button class="btn btn-primary btn-sm" onclick="showQRCode('${ticketCode}', '${t.qr_code}')" style="margin-top:8px;width:100%;">
+                                <i class="fas fa-expand"></i> Perbesar
+                            </button>` : 
+                            ''
+                        }
+                        ${certButton}
+                    </div>
+                </div>
+            `;
+    }
+    container.innerHTML = html;
+    console.log('✅ renderTickets() selesai!');
+}
 
         // ================================================================
         // RENDER: EVENTS
@@ -2015,6 +2025,15 @@
         // ================================================================
 
 function generateCertificate(ticketCode) {
+    console.log('🔍 generateCertificate dipanggil dengan ticketCode:', ticketCode);
+    
+    // 🔥 VALIDASI INPUT
+    if (!ticketCode || ticketCode === 'undefined' || ticketCode === 'null' || ticketCode === '') {
+        alert('❌ Kode tiket tidak valid! Silakan refresh halaman dan coba lagi.');
+        console.error('❌ ticketCode tidak valid:', ticketCode);
+        return;
+    }
+
     if (!confirm('Generate sertifikat untuk tiket ini?\n\n⚠️ Sertifikat hanya bisa diambil jika Anda sudah check-in.')) {
         return;
     }
