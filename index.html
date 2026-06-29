@@ -1476,7 +1476,6 @@ html += `
                     ${e.ticket_price && e.ticket_price > 0 ? ' • 💰 Rp ' + formatNumber(e.ticket_price) : ' • 🆓 Gratis'}
                     ${ratingHtml}
                 </p>
-                ${isRegistered ? '<p style="font-size:12px;color:#34d399;"><i class="fas fa-check"></i> Anda sudah memiliki tiket, bisa beli lagi</p>' : ''}
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <button class="btn btn-primary btn-sm" onclick="registerToEvent('${e.id}')">
